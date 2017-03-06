@@ -1,0 +1,14 @@
+{
+  "name": "xpostbot",
+  "version": "1.0.0",
+  "description": "simple slackbot to crosspost to support channels",
+  "main": "index.js",
+  "scripts": {
+    "test": "test"
+  },
+  "author": "gilmanj",
+  "license": "ISC",
+  "dependencies": {
+    "botkit": "^0.5.1"
+  }
+}
