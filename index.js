@@ -1,5 +1,5 @@
-if (!process.env.token) {
-    console.log('Error: Specify token in environment');
+if (!process.env.token1 || !process.env.token2) {
+    console.log('Error: Specify tokens in environment');
     process.exit(1);
 }
 
@@ -10,27 +10,36 @@ var controller = Botkit.slackbot({
     debug: false,
 });
 
-var bot = controller.spawn({
-    token: process.env.token
+var bot1 = controller.spawn({
+    token: process.env.token1
 }).startRTM();
+bot1.supportChannelName = 'support_channel';
 
-var SUPPORT_CHANNEL = 'support_channel';
-var channelList = [];
-var userList = [];
+var bot2 = controller.spawn({
+    token: process.env.token2
+}).startRTM();
+bot2.supportChannelName = 'other_support_channel';
 
-//populate the list of channels for the team
-bot.api.channels.list({}, function (err, response) {
+//find the channel ids for the support channels
+bot1.api.channels.list({}, function (err, response) {
     if (response.hasOwnProperty('channels') && response.ok) {
         let total = response.channels.length;
         for (let i = 0; i < total; i++) {
             let channel = response.channels[i];
-            channelList.push({name: channel.name, id: channel.id});
+            if(channel.name === bot1.supportChannelName) {
+                bot1.supportChannelId = channel.id;
+            }
+            if(channel.name === bot2.supportChannelName) {
+                bot2.supportChannelId = channel.id;
+            }
         }
     }
 });
 
+var userList = [];
+
 //populate the list of users for the team
-bot.api.users.list({}, function (err, response) {
+bot1.api.users.list({}, function (err, response) {
     if (response.hasOwnProperty('members') && response.ok) {
         var total = response.members.length;
         for (var i = 0; i < total; i++) {
@@ -40,20 +49,11 @@ bot.api.users.list({}, function (err, response) {
     }
 });
 
-function findChannelIdByName(name) {
-    let channelId;
-    channelList.forEach(function(item) {
-        if(item.name === name) {
-            channelId = item.id;
-        }
-    });
-    return channelId;
-}
-
 function crossPost(bot, message, source) {
     bot.say({
-        text: `(${source}) ${message.text}`,
-        channel: findChannelIdByName(SUPPORT_CHANNEL),
+        text: `${source} \n&gt;${message.text}`,
+        channel: bot.supportChannelId,
+        mrkdwn: true
     },function(err,res) {
         if(err) {
             bot.botkit.log('Failed to cross-post message: ', err);    
@@ -62,7 +62,9 @@ function crossPost(bot, message, source) {
 }
 
 controller.on('direct_mention,mention', function(bot, message) {
-    crossPost(bot, message, `<@${message.user}> from <#${message.channel}>`);
+    if(bot.supportChannelId !== message.channel) {
+        crossPost(bot, message, `<@${message.user}> from <#${message.channel}>`);
+    }
 });
 
 controller.on('direct_message', function(bot, message) {
